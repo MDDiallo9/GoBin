@@ -7,13 +7,16 @@ import (
 	"net/http"
 	"os"
 
-	 _ "github.com/go-sql-driver/mysql"
-	 "github.com/joho/godotenv"
+	"GoBin/internal/models"
+
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/joho/godotenv"
 )
 
 type application struct {
 	errorLog *log.Logger
 	infoLog *log.Logger
+	snippets *models.SnippetModel // Snippets model object will be accessible thoughout the app
 }
 
 func main() {
@@ -44,6 +47,7 @@ func main() {
 	app := &application{
 		errorLog: errorLog,
 		infoLog: infoLog,
+		snippets: &models.SnippetModel{DB:db}, // 
 	}
 
 	/* Initializing a http.Server struct to pass down options */
