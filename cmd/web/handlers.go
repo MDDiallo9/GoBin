@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 	//"html/template"
+	"errors"
 	"net/http"
 	"strconv"
-	"errors"
 
 	"GoBin/internal/models"
 )
@@ -16,27 +16,16 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	snippets,err := app.snippets.Latest()
-	if err != nil {
-		app.serverError(w,err)
-	}
-
-	for _,snippet := range snippets {
-		fmt.Fprintf(w,"%+v\n",snippet)
-	}
-
-	/* files := []string{"./ui/html/base.tmpl", "./ui/html/pages/home.tmpl", "./ui/html/partials/nav.tmpl"}
-
-	ts, err := template.ParseFiles(files...)
+	snippets, err := app.snippets.Latest()
 	if err != nil {
 		app.serverError(w, err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
-	err = ts.ExecuteTemplate(w, "base", nil)
-	if err != nil {
-		app.serverError(w, err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-	} */
+
+	data := app.newTemplateData(r)
+	data.Snippets = snippets
+
+	app.render(w,http.StatusOK,"home.tmpl",data)
+
 }
 
 func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
@@ -45,17 +34,21 @@ func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
 		app.notFound(w)
 		return
 	}
-	snippet,err := app.snippets.Get(id)
+	snippet, err := app.snippets.Get(id)
 	if err != nil {
-		if errors.Is(err,models.ErrNoRecords){
+		if errors.Is(err, models.ErrNoRecords) {
 			app.notFound(w)
 		} else {
-			app.serverError(w,err)
+			app.serverError(w, err)
 		}
 		return
 	}
 
-	fmt.Fprintf(w, "%+v", snippet)
+	data := app.newTemplateData(r)
+	data.Snippet = snippet
+
+	app.render(w,http.StatusOK,"view.tmpl",data)
+	
 }
 
 func (app *application) snippetCreate(w http.ResponseWriter, r *http.Request) {
@@ -70,10 +63,10 @@ func (app *application) snippetCreate(w http.ResponseWriter, r *http.Request) {
 	content := "O snail\nClimb Mount Fuji,\nBut slowly, slowly!\n\n– Kobayashi Issa"
 	expires := 7
 
-	id,err := app.snippets.Insert(title,content,expires)
+	id, err := app.snippets.Insert(title, content, expires)
 	if err != nil {
-		app.serverError(w,err)
+		app.serverError(w, err)
 	}
 
-	http.Redirect(w,r,fmt.Sprintf("/snippet/view?id=%v",id),http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/snippet/view?id=%v", id), http.StatusSeeOther)
 }

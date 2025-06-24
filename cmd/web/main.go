@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"html/template"
 	"flag"
 	"log"
 	"net/http"
@@ -17,6 +18,7 @@ type application struct {
 	errorLog *log.Logger
 	infoLog *log.Logger
 	snippets *models.SnippetModel // Snippets model object will be accessible thoughout the app
+	templateCache map[string]*template.Template
 }
 
 func main() {
@@ -43,11 +45,18 @@ func main() {
 
 	defer db.Close()
 
+	// New Template cache
+	templateCache,err := newTemplateCache()
+	if err != nil {
+		errorLog.Fatal(err)
+	}
+
 	// Instanciating a new application struct
 	app := &application{
 		errorLog: errorLog,
 		infoLog: infoLog,
 		snippets: &models.SnippetModel{DB:db}, // 
+		templateCache: templateCache,
 	}
 
 	/* Initializing a http.Server struct to pass down options */
