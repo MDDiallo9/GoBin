@@ -12,5 +12,5 @@ func (app *application) routes() http.Handler {
 	mux.HandleFunc("/snippet/view",app.snippetView)
 	mux.HandleFunc("/snippet/create",app.snippetCreate)
 	
-	return secureHeaders(mux) // the requests now go through the middleware secureHeaders first
+	return app.logRequest(secureHeaders(mux)) // the requests now go through the middleware secureHeaders first
 }
