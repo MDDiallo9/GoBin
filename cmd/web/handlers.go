@@ -2,19 +2,26 @@ package main
 
 import (
 	"fmt"
+	"strings"
+	"unicode/utf8"
 	//"html/template"
 	"errors"
 	"net/http"
 	"strconv"
 
 	"GoBin/internal/models"
+
+	"github.com/julienschmidt/httprouter"
 )
 
+type snippetCreateForm struct {
+	Title string
+	Content string
+	Expires int
+	FieldErrors map[string]string
+}
+
 func (app *application) home(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		app.notFound(w)
-		return
-	}
 
 	snippets, err := app.snippets.Latest()
 	if err != nil {
@@ -29,7 +36,9 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.Atoi(r.URL.Query().Get("id"))
+	params := httprouter.ParamsFromContext(r.Context())
+
+	id, err := strconv.Atoi(params.ByName("id"))
 	if err != nil || id < 1 {
 		app.notFound(w)
 		return
@@ -51,22 +60,59 @@ func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
 	
 }
 
-func (app *application) snippetCreate(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.Header().Set("Allow", http.MethodPost)
-		app.clientError(w, http.StatusMethodNotAllowed)
+func (app *application) snippetCreate(w http.ResponseWriter, r *http.Request){
+	data := app.newTemplateData(r)
+	data.Form = snippetCreateForm{
+		Expires: 365,
+	}
+	app.render(w,http.StatusOK,"create.tmpl",data)
+}
+
+func (app *application) snippetCreatePost(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm()
+	if err != nil {
+		app.clientError(w,http.StatusBadRequest)
+	}
+
+	expires,err := strconv.Atoi(r.PostForm.Get("expires"))
+	form := snippetCreateForm{
+		Title: r.PostForm.Get("title"),
+		Content:r.PostForm.Get("content"),
+		Expires: expires,
+		FieldErrors: make(map[string]string),
+	}
+
+	if err != nil {
+		app.clientError(w,http.StatusBadRequest)
+	}
+
+	// Checking inputs
+
+	if strings.TrimSpace(form.Title) == "" {
+		form.FieldErrors["title"] = "This field cannot be blank"
+	} else if utf8.RuneCountInString(form.Title) > 100 { // better than len(title) because len only counts bytes , this one counts runes
+		form.FieldErrors["title"] = "This field cannot be longer than a 100 characters long"
+	}
+
+	if strings.TrimSpace(form.Content) == "" {
+		form.FieldErrors["content"] = "This field cannot be blank"
+	}
+
+	if expires != 1 && expires != 7 && expires != 365 {
+		form.FieldErrors["expires"] = "This field must be either 1,7 or 365"
+	}
+
+	if len(form.FieldErrors) > 0 {
+		data := app.newTemplateData(r)
+		data.Form = form
+		app.render(w,http.StatusOK,"create.tmpl",data)
 		return
 	}
 
-	// Dummy data
-	title := "O snail"
-	content := "O snail\nClimb Mount Fuji,\nBut slowly, slowly!\n\n– Kobayashi Issa"
-	expires := 7
-
-	id, err := app.snippets.Insert(title, content, expires)
+	id, err := app.snippets.Insert(form.Title, form.Content, form.Expires)
 	if err != nil {
 		app.serverError(w, err)
 	}
 
-	http.Redirect(w, r, fmt.Sprintf("/snippet/view?id=%v", id), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/snippet/view/%v", id), http.StatusSeeOther)
 }
