@@ -52,6 +52,14 @@ func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	if r.URL.Query().Get("dl") != "" {
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=snippet-%v.txt", snippet.Title))
+        w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+        w.Write([]byte(snippet.Content))
+        return
+	}
+	
+	
 
 	data := app.newTemplateData(r)
 	data.Snippet = snippet
@@ -115,4 +123,26 @@ func (app *application) snippetCreatePost(w http.ResponseWriter, r *http.Request
 	}
 
 	http.Redirect(w, r, fmt.Sprintf("/snippet/view/%v", id), http.StatusSeeOther)
+}
+
+func (app *application) snippetDelete(w http.ResponseWriter, r *http.Request) {
+	params := httprouter.ParamsFromContext(r.Context())
+
+	id, err := strconv.Atoi(params.ByName("id"))
+	if err != nil || id < 1 {
+		app.notFound(w)
+		return
+	}
+
+	del,err := app.snippets.Delete(id)
+	if err != nil {
+		if errors.Is(err, models.ErrNoRecords) {
+			app.notFound(w)
+		} else {
+			app.serverError(w, err)
+		}
+		return
+	}
+	fmt.Printf("Deleted snippet #%v\n",del)
+	http.Redirect(w,r,"/",http.StatusSeeOther)
 }

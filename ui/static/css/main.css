@@ -311,3 +311,8 @@ footer {
     color: #6A6C6F;
     text-align: center;
 }
+
+.opts {
+    display: flex;
+    justify-content: space-between;
+}
